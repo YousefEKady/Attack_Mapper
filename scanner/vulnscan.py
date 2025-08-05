@@ -13,6 +13,36 @@ def load_config(config_path="config.yaml"):
 def sanitize_filename(url):
     return re.sub(r'[^a-zA-Z0-9_\-]', '_', url)
 
+def parse_nuclei_output_line(line):
+    # Remove ANSI color codes
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    clean_line = ansi_escape.sub('', line).strip()
+
+    finding = {"raw_output": clean_line}
+
+    try:
+        parts = re.findall(r'\[(.*?)\]', clean_line)
+        url_match = re.search(r'(https?://[^\s\[]+)', clean_line)
+
+        if len(parts) >= 3 and url_match:
+            finding.update({
+                "name": parts[0],
+                "type": parts[1],
+                "severity": parts[2],
+                "url": url_match.group()
+            })
+
+        # Optional key=value extras (e.g. redirect="/x")
+        extras = re.findall(r'(\w+)=["\']?([^"\']+)["\']?', clean_line)
+        for key, value in extras:
+            if key not in finding:
+                finding[key] = value
+
+    except Exception as e:
+        finding["parse_error"] = str(e)
+
+    return finding
+
 def scan_single(url, config):
     nuclei_path = config.get("nuclei_path")
     templates = config.get("templates")
@@ -56,7 +86,7 @@ def scan_single(url, config):
 
         for line in result.stdout.strip().splitlines():
             if line.strip():
-                findings.append({"raw_output": line.strip()})
+                findings.append(parse_nuclei_output_line(line))
 
         elapsed = round(time.time() - start_time, 2)
         return url, {

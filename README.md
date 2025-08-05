@@ -12,13 +12,17 @@ A modern, responsive web dashboard for performing attack surface discovery scans
 - **Developer Friendly**: Expandable raw JSON output for debugging
 - **Summary Cards**: Quick overview of scan results with counts and error indicators
 
-## File Structure
+## Directory Structure
 
 ```
-├── index.html          # Main HTML file
-├── styles.css          # Custom CSS styling
-├── script.js           # JavaScript functionality
-└── README.md           # This file
+├── templates/
+│   └── index.html          # Main HTML template
+├── static/
+│   ├── css/
+│   │   └── style.css       # Custom CSS styling
+│   └── js/
+│       └── script.js       # JavaScript functionality
+└── README.md               # This file
 ```
 
 ## Setup Instructions
@@ -52,7 +56,55 @@ Your backend API should have a POST endpoint at `/api/scan` with the following s
 
 ### 2. Serving the Dashboard
 
-#### Option A: Simple HTTP Server (Development)
+#### Option A: Flask/Python Backend
+```python
+from flask import Flask, render_template, send_from_directory
+
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    return send_from_directory('static', filename)
+
+# Your API endpoint
+@app.route('/api/scan', methods=['POST'])
+def scan():
+    # Your scan logic here
+    pass
+
+if __name__ == '__main__':
+    app.run(debug=True)
+```
+
+#### Option B: Express.js/Node.js Backend
+```javascript
+const express = require('express');
+const path = require('path');
+const app = express();
+
+app.use('/static', express.static('static'));
+app.set('view engine', 'html');
+app.set('views', 'templates');
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'templates', 'index.html'));
+});
+
+// Your API endpoint
+app.post('/api/scan', (req, res) => {
+    // Your scan logic here
+});
+
+app.listen(3000, () => {
+    console.log('Server running on port 3000');
+});
+```
+
+#### Option C: Simple HTTP Server (Development)
 ```bash
 # Using Python 3
 python -m http.server 8000
@@ -64,17 +116,12 @@ npx http-server
 php -S localhost:8000
 ```
 
-#### Option B: Production Web Server
-- Place files in your web server's document root
-- Ensure your backend API is accessible at `/api/scan`
-- Configure CORS if your API is on a different domain
-
 ### 3. API Configuration
 
-If your API is not at the same domain as the dashboard, you'll need to update the fetch URL in `script.js`:
+If your API is not at the same domain as the dashboard, you'll need to update the fetch URL in `static/js/script.js`:
 
 ```javascript
-// Change this line in script.js
+// Change this line in static/js/script.js
 const response = await fetch('/api/scan', {
     // to your actual API endpoint
     const response = await fetch('https://your-api-domain.com/api/scan', {
@@ -82,7 +129,7 @@ const response = await fetch('/api/scan', {
 
 ## Usage
 
-1. **Open the Dashboard**: Navigate to `index.html` in your browser
+1. **Open the Dashboard**: Navigate to your server's root URL
 2. **Enter Domain**: Type the target domain (e.g., `example.com`)
 3. **Select Scan Types**: Choose from:
    - All Scans (recommended)
@@ -100,17 +147,17 @@ const response = await fetch('/api/scan', {
 ## Customization
 
 ### Styling
-- Modify `styles.css` to change colors, fonts, and layout
+- Modify `static/css/style.css` to change colors, fonts, and layout
 - The dashboard uses CSS custom properties for easy theming
 - Bootstrap 5 classes are used for responsive design
 
 ### Functionality
-- Edit `script.js` to modify API calls or add new features
+- Edit `static/js/script.js` to modify API calls or add new features
 - The code is well-commented and modular for easy extension
 
 ### Adding New Scan Types
-1. Add new options to the select element in `index.html`
-2. Update the `generateSummaryCards` function in `script.js`
+1. Add new options to the select element in `templates/index.html`
+2. Update the `generateSummaryCards` function in `static/js/script.js`
 3. Create new update functions for the new scan type
 4. Add corresponding result containers to the HTML
 
@@ -134,7 +181,7 @@ const response = await fetch('/api/scan', {
 
 1. **API Connection Failed**
    - Check if your backend server is running
-   - Verify the API endpoint URL in `script.js`
+   - Verify the API endpoint URL in `static/js/script.js`
    - Check browser console for CORS errors
 
 2. **Results Not Displaying**
@@ -144,12 +191,17 @@ const response = await fetch('/api/scan', {
 
 3. **Styling Issues**
    - Ensure Bootstrap CSS is loading correctly
-   - Check if `styles.css` is accessible
+   - Check if `static/css/style.css` is accessible
    - Clear browser cache if changes aren't appearing
+
+4. **Static Files Not Loading**
+   - Verify your web server is configured to serve static files
+   - Check file paths in `templates/index.html`
+   - Ensure proper permissions on static directories
 
 ### Debug Mode
 
-To enable debug mode, uncomment the last line in `script.js`:
+To enable debug mode, uncomment the last line in `static/js/script.js`:
 ```javascript
 document.addEventListener('DOMContentLoaded', addExampleData);
 ```

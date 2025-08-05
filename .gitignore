@@ -1,0 +1,31 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.env/
+env/
+.venv/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE/editor settings
+.vscode/
+.idea/
+
+# Reports and output
+reports/
+*.json
+*.log
+
+# Configs (optional if private)
+config.yaml
+
+# Nuclei binary or templates (optional)
+nuclei.exe
+nuclei-templates/

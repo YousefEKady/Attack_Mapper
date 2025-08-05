@@ -44,19 +44,23 @@ def run_scan(domain, scans, config, output_file=None):
                     print(f"    {err}")
 
         if "vulnscan" in scans or "all" in scans:
-            print("\n[*] Scanning for vulnerabilities with nuclei...")
-            vulns, vuln_errors = vulnscan.scan_with_nuclei(live_urls, config_path="config.yaml")
-            results["vulnerabilities"] = vulns
-            if vuln_errors:
-                print("\n[!] Vulnerability Scan Errors:")
-                for err in vuln_errors:
-                    print(f"    {err}")
+            https_only = [url for url in live_urls if url.startswith("https://")]
+            if https_only:
+                print("\n[*] Scanning for vulnerabilities with nuclei...")
+                vulns, vuln_errors = vulnscan.scan_with_nuclei(https_only, config_path="config.yaml")
+                results["vulnerabilities"] = vulns
+                if vuln_errors:
+                    print("\n[!] Vulnerability Scan Errors:")
+                    for err in vuln_errors:
+                        print(f"    {err}")
+            else:
+                print("\n[!] No HTTPS hosts found to scan for vulnerabilities.")
 
     # Save results
     if output_file:
-        save_results(results, output_file)  # User-provided path
+        save_results(results, output_file)
     else:
-        save_results(results, output_dir=output_dir)  # Auto-generate in reports/
+        save_results(results, output_dir=output_dir)
 
     print_results(results)
 

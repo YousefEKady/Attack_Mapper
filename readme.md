@@ -45,7 +45,6 @@ templates: "YOUR-PATH"
 severity: "medium,high,critical"
 output_dir: "reports"
 wordlist: wordlists/subdomains.txt
-max_threads: 2
 concurrency: 2
 rate_limit: 5
 nuclei_http_timeout: 30

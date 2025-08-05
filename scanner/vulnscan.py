@@ -3,7 +3,6 @@ import os
 import time
 import re
 import yaml
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def load_config(config_path="config.yaml"):
     if not os.path.exists(config_path):
@@ -101,7 +100,6 @@ def scan_with_nuclei(targets, config_path="config.yaml"):
     nuclei_path = config.get("nuclei_path")
     templates = config.get("templates")
     output_dir = config.get("output_dir", "reports")
-    max_threads = max(1, min(4, config.get("max_threads", 2)))
 
     if not os.path.isfile(nuclei_path):
         msg = f"[!] Nuclei binary not found: {nuclei_path}"
@@ -113,15 +111,10 @@ def scan_with_nuclei(targets, config_path="config.yaml"):
 
     os.makedirs(output_dir, exist_ok=True)
 
-    with ThreadPoolExecutor(max_workers=max_threads) as executor:
-        futures = [executor.submit(scan_single, url, dict(config)) for url in targets]
-        for future in as_completed(futures):
-            try:
-                url, result, err = future.result()
-                results[url] = result
-                if err:
-                    errors.append(err)
-            except Exception as e:
-                errors.append(f"[!] Unexpected exception: {str(e)}")
+    for url in targets:
+        url, result, err = scan_single(url, dict(config))  # Copy config per target
+        results[url] = result
+        if err:
+            errors.append(err)
 
     return results, errors

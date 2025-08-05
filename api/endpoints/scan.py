@@ -34,7 +34,6 @@ def run_scan(request: ScanRequest):
         output_dir = config.get("output_dir", "reports")
         os.makedirs(output_dir, exist_ok=True)
 
-        # ---------- Subdomain Enumeration ----------
         subs = []
         if "subdomain" in scans or "all" in scans:
             subs, sub_errors = subdomain.discover(
@@ -47,7 +46,6 @@ def run_scan(request: ScanRequest):
             results_for_file["subdomains"] = subs
             results_for_file["subdomain_errors"] = sub_errors
 
-        # ---------- Live Host Probing ----------
         live = []
         if "probe" in scans or "all" in scans:
             live, probe_errors = probe.check_live(
@@ -60,7 +58,6 @@ def run_scan(request: ScanRequest):
             results_for_file["live_hosts"] = live
             results_for_file["probe_errors"] = probe_errors
 
-        # ---------- Handle case of no live hosts ----------
         if not live:
             note = "No live hosts found. Skipping technology and vulnerability scans."
             response_data["note"] = note
@@ -68,7 +65,6 @@ def run_scan(request: ScanRequest):
         else:
             live_urls = [host["url"] for host in live]
 
-            # ---------- Technology Detection ----------
             if "techdetect" in scans or "all" in scans:
                 techs_raw, tech_errors = techdetect.detect(live_urls)
 
@@ -88,15 +84,23 @@ def run_scan(request: ScanRequest):
                 results_for_file["technologies"] = techs_raw
                 results_for_file["techdetect_errors"] = tech_errors
 
-            # ---------- Vulnerability Scan ----------
             if "vulnscan" in scans or "all" in scans:
                 https_only = [url for url in live_urls if url.startswith("https://")]
                 if https_only:
                     vulns, vuln_errors = vulnscan.scan_with_nuclei(
                         https_only, config_path="config.yaml"
                     )
+
+                    # Ensure vulnerabilities is a flat list
+                    flat_vulns = []
+                    for url, result in vulns.items():
+                        findings = result.get("findings", [])
+                        for finding in findings:
+                            finding["target"] = url
+                            flat_vulns.append(finding)
+
                     response_data["vulnscan_result"] = VulnScanResult(
-                        vulnerabilities=vulns,
+                        vulnerabilities=flat_vulns,
                         errors=wrap_errors(vuln_errors) if vuln_errors else None
                     )
                     results_for_file["vulnerabilities"] = vulns
@@ -106,7 +110,6 @@ def run_scan(request: ScanRequest):
                     response_data["vulnscan_note"] = note
                     results_for_file["vulnscan_note"] = note
 
-        # ---------- Save Results ----------
         save_results(results_for_file, output_dir=output_dir)
 
         return ScanResponse(**response_data)

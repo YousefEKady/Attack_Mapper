@@ -13,15 +13,11 @@ def load_config(config_path="config.yaml"):
 def sanitize_filename(url):
     return re.sub(r'[^a-zA-Z0-9_\-]', '_', url)
 
-def scan_single(url, config, attempt=1):
+def scan_single(url, config):
     nuclei_path = config.get("nuclei_path")
     templates = config.get("templates")
     severity = config.get("severity", "low,medium,high,critical")
     output_dir = config.get("output_dir", "reports")
-    concurrency = str(config.get("concurrency", 2))
-    rate_limit = str(config.get("rate_limit", 5))
-    nuclei_timeout = str(config.get("nuclei_http_timeout", 30))
-    subprocess_timeout = config.get("subprocess_timeout", 240)
 
     safe_name = sanitize_filename(url)
     raw_output_file = os.path.join(output_dir, f"nuclei_{safe_name}.txt")
@@ -34,9 +30,6 @@ def scan_single(url, config, attempt=1):
         "-u", url,
         "-silent",
         "-severity", severity,
-        "-c", concurrency,
-        "-rate-limit", rate_limit,
-        "-timeout", nuclei_timeout,
     ]
 
     if templates and os.path.exists(templates):
@@ -50,8 +43,7 @@ def scan_single(url, config, attempt=1):
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
-            timeout=subprocess_timeout
+            text=True
         )
 
         with open(raw_output_file, "w", encoding="utf-8") as out_file:
@@ -71,17 +63,6 @@ def scan_single(url, config, attempt=1):
             "scan_time_seconds": elapsed,
             "findings": findings if findings else [{"info": "No vulnerabilities found"}]
         }, error_msg
-
-    except subprocess.TimeoutExpired:
-        if attempt == 1:
-            print(f"[Retry] Timeout on {url}, retrying with lower concurrency...")
-            config["concurrency"] = 1
-            config["rate_limit"] = 3
-            config["subprocess_timeout"] = 300
-            config["nuclei_http_timeout"] = 40
-            return scan_single(url, config, attempt=2)
-        msg = f"[!] Timeout during scan of {url} after retry"
-        return url, {"error": msg}, msg
 
     except Exception as e:
         msg = f"[!] Error scanning {url}: {str(e)}"

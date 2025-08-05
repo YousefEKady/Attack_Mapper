@@ -1,7 +1,6 @@
 import subprocess
 import os
 import time
-import json
 import re
 import yaml
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -15,62 +14,76 @@ def load_config(config_path="config.yaml"):
 def sanitize_filename(url):
     return re.sub(r'[^a-zA-Z0-9_\-]', '_', url)
 
-def scan_single(url, config):
+def scan_single(url, config, attempt=1):
     nuclei_path = config.get("nuclei_path")
     templates = config.get("templates")
     severity = config.get("severity", "low,medium,high,critical")
     output_dir = config.get("output_dir", "reports")
+    concurrency = str(config.get("concurrency", 2))
+    rate_limit = str(config.get("rate_limit", 5))
+    nuclei_timeout = str(config.get("nuclei_http_timeout", 30))
+    subprocess_timeout = config.get("subprocess_timeout", 240)
 
     safe_name = sanitize_filename(url)
-    raw_output_file = os.path.join(output_dir, f"nuclei_{safe_name}.json")
+    raw_output_file = os.path.join(output_dir, f"nuclei_{safe_name}.txt")
     stderr_file = os.path.join(output_dir, f"nuclei_{safe_name}_error.log")
     findings = []
     error_msg = None
 
+    cmd = [
+        nuclei_path,
+        "-u", url,
+        "-silent",
+        "-severity", severity,
+        "-c", concurrency,
+        "-rate-limit", rate_limit,
+        "-timeout", nuclei_timeout,
+    ]
+
+    if templates and os.path.exists(templates):
+        cmd += ["-t", templates]
+    else:
+        return url, {"error": f"[!] Templates path invalid: {templates}"}, f"[!] Invalid templates path: {templates}"
+
     try:
-        cmd = [
-            nuclei_path, "-u", url,
-            "-silent", "-c", "20", "-rate-limit", "100",
-            "-severity", severity, "-json"
-        ]
-
-        if templates and os.path.exists(templates):
-            cmd.extend(["-t", templates])
-        else:
-            return url, {"error": f"[!] Templates path not found or invalid: {templates}"}, f"[!] Invalid template path: {templates}"
-
         start_time = time.time()
-        with open(raw_output_file, "w", encoding="utf-8") as f:
-            result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, text=True, timeout=120)
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=subprocess_timeout
+        )
+
+        with open(raw_output_file, "w", encoding="utf-8") as out_file:
+            out_file.write(result.stdout)
 
         if result.stderr.strip():
             with open(stderr_file, "w", encoding="utf-8") as ef:
                 ef.write(result.stderr)
-            error_msg = f"[!] STDERR for {url}: {result.stderr.strip().splitlines()[0]} (See: {stderr_file})"
+            error_msg = f"[!] STDERR for {url}: {result.stderr.strip().splitlines()[0]} (see log)"
 
-        if os.path.isfile(raw_output_file):
-            with open(raw_output_file, "r", encoding="utf-8") as f:
-                for line in f:
-                    try:
-                        data = json.loads(line.strip())
-                        findings.append({
-                            "template": data.get("template-id"),
-                            "name": data.get("info", {}).get("name"),
-                            "severity": data.get("info", {}).get("severity"),
-                            "matched": data.get("matched-at")
-                        })
-                    except json.JSONDecodeError:
-                        continue
+        for line in result.stdout.strip().splitlines():
+            if line.strip():
+                findings.append({"raw_output": line.strip()})
 
         elapsed = round(time.time() - start_time, 2)
         return url, {
             "scan_time_seconds": elapsed,
-            "findings": findings if findings else []
+            "findings": findings if findings else [{"info": "No vulnerabilities found"}]
         }, error_msg
 
     except subprocess.TimeoutExpired:
-        msg = f"[!] Timeout during scan of {url}"
+        if attempt == 1:
+            print(f"[Retry] Timeout on {url}, retrying with lower concurrency...")
+            config["concurrency"] = 1
+            config["rate_limit"] = 3
+            config["subprocess_timeout"] = 300
+            config["nuclei_http_timeout"] = 40
+            return scan_single(url, config, attempt=2)
+        msg = f"[!] Timeout during scan of {url} after retry"
         return url, {"error": msg}, msg
+
     except Exception as e:
         msg = f"[!] Error scanning {url}: {str(e)}"
         return url, {"error": msg}, msg
@@ -88,27 +101,27 @@ def scan_with_nuclei(targets, config_path="config.yaml"):
     nuclei_path = config.get("nuclei_path")
     templates = config.get("templates")
     output_dir = config.get("output_dir", "reports")
-    max_threads = config.get("max_threads", 5)
+    max_threads = max(1, min(4, config.get("max_threads", 2)))
 
     if not os.path.isfile(nuclei_path):
-        msg = f"[!] Nuclei binary not found at path: {nuclei_path}"
+        msg = f"[!] Nuclei binary not found: {nuclei_path}"
         return {url: {"error": msg} for url in targets}, [msg]
 
-    if templates and not os.path.exists(templates):
-        msg = f"[!] Templates folder not found: {templates}"
+    if not os.path.exists(templates):
+        msg = f"[!] Templates path not found: {templates}"
         return {url: {"error": msg} for url in targets}, [msg]
 
     os.makedirs(output_dir, exist_ok=True)
 
     with ThreadPoolExecutor(max_workers=max_threads) as executor:
-        futures = [executor.submit(scan_single, url, config) for url in targets]
+        futures = [executor.submit(scan_single, url, dict(config)) for url in targets]
         for future in as_completed(futures):
             try:
-                url, res, err = future.result()
-                results[url] = res
+                url, result, err = future.result()
+                results[url] = result
                 if err:
                     errors.append(err)
             except Exception as e:
-                errors.append(f"[!] Unexpected exception: {e}")
+                errors.append(f"[!] Unexpected exception: {str(e)}")
 
     return results, errors

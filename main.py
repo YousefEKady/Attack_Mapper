@@ -1,8 +1,14 @@
 import argparse
 import os
+import json
 from scanner import subdomain, probe, techdetect, vulnscan
 from utils.output import save_results, print_results
 from utils.config import load_config
+
+def write_json_partial(data, filename, output_dir):
+    path = os.path.join(output_dir, filename)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
 
 def run_scan(domain, scans, config, output_file=None):
     results = {"domain": domain}
@@ -14,6 +20,8 @@ def run_scan(domain, scans, config, output_file=None):
         print("[*] Discovering subdomains...")
         subs, sub_errors = subdomain.discover(domain, config.get("wordlist", "wordlists/subdomains.txt"))
         results["subdomains"] = subs
+        write_json_partial(subs, "subdomains.json", output_dir)
+
         if sub_errors:
             print("\n[!] Subdomain Errors:")
             for err in sub_errors:
@@ -24,6 +32,8 @@ def run_scan(domain, scans, config, output_file=None):
         print("\n[*] Checking live hosts...")
         live, probe_errors = probe.check_live(subs, config.get("max_threads", 20))
         results["live_hosts"] = live
+        write_json_partial(live, "live_hosts.json", output_dir)
+
         if probe_errors:
             print("\n[!] Probe Errors:")
             for err in probe_errors:
@@ -38,6 +48,8 @@ def run_scan(domain, scans, config, output_file=None):
             print("\n[*] Detecting technologies...")
             techs, tech_errors = techdetect.detect(live_urls)
             results["technologies"] = techs
+            write_json_partial(techs, "technologies.json", output_dir)
+
             if tech_errors:
                 print("\n[!] TechDetect Errors:")
                 for err in tech_errors:
@@ -49,6 +61,8 @@ def run_scan(domain, scans, config, output_file=None):
                 print("\n[*] Scanning for vulnerabilities with nuclei...")
                 vulns, vuln_errors = vulnscan.scan_with_nuclei(https_only, config_path="config.yaml")
                 results["vulnerabilities"] = vulns
+                write_json_partial(vulns, "vulnerabilities.json", output_dir)
+
                 if vuln_errors:
                     print("\n[!] Vulnerability Scan Errors:")
                     for err in vuln_errors:
@@ -56,7 +70,7 @@ def run_scan(domain, scans, config, output_file=None):
             else:
                 print("\n[!] No HTTPS hosts found to scan for vulnerabilities.")
 
-    # Save results
+    # Save final full result
     if output_file:
         save_results(results, output_file)
     else:

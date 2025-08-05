@@ -1,6 +1,6 @@
-from pydantic import BaseModel
-from typing import List, Optional
+from pydantic import BaseModel, Field
+from typing import List
 
 class ScanRequest(BaseModel):
     domain: str
-    scans: Optional[List[str]] = ["all"]
+    scans: List[str] = Field(default_factory=lambda: ["all"])

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional, Dict, Any
 
 class ErrorDetail(BaseModel):
@@ -6,29 +6,32 @@ class ErrorDetail(BaseModel):
 
 class SubdomainResult(BaseModel):
     subdomains: List[str]
-    errors: Optional[List[ErrorDetail]]
+    errors: Optional[List[ErrorDetail]] = None
 
 class ProbeResult(BaseModel):
     live_hosts: List[Dict[str, Any]]
-    errors: Optional[List[ErrorDetail]]
+    errors: Optional[List[ErrorDetail]] = None
+
+class TechnologyDetails(BaseModel):
+    status_code: int
+    response_headers: List[str]
+    detected_technologies: List[str]
+
+    model_config = ConfigDict(extra="ignore")
 
 class TechDetectResult(BaseModel):
-    technologies: Dict[str, List[str]]
-    errors: Optional[List[ErrorDetail]]
+    technologies: Dict[str, TechnologyDetails]
+    errors: Optional[List[ErrorDetail]] = None
 
 class VulnScanResult(BaseModel):
     vulnerabilities: List[Dict[str, Any]]
-    errors: Optional[List[ErrorDetail]]
+    errors: Optional[List[ErrorDetail]] = None
 
 class ScanResponse(BaseModel):
     domain: str
-    subdomains: Optional[List[str]]
-    live_hosts: Optional[List[Dict[str, Any]]]
-    technologies: Optional[Dict[str, List[str]]]
-    vulnerabilities: Optional[List[Dict[str, Any]]]
-    subdomain_errors: Optional[List[str]]
-    probe_errors: Optional[List[str]]
-    techdetect_errors: Optional[List[str]]
-    vulnscan_errors: Optional[List[str]]
-    note: Optional[str]
-    vulnscan_note: Optional[str]
+    subdomain_result: Optional[SubdomainResult] = None
+    probe_result: Optional[ProbeResult] = None
+    techdetect_result: Optional[TechDetectResult] = None
+    vulnscan_result: Optional[VulnScanResult] = None
+    note: Optional[str] = None
+    vulnscan_note: Optional[str] = None

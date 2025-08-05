@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from api.endpoints.scan import router as scan_router
 from api.endpoints.status import router as status_router 
 
@@ -8,11 +10,14 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 app.include_router(scan_router, prefix="/api/scan", tags=["Scan"])
 
 app.include_router(status_router, prefix="/api/status", tags=["Status"])
 
-# Root endpoint
+# Root endpoint - serve the frontend
 @app.get("/")
 def read_root():
-    return {"message": "Attack Surface Discovery API is running"}
+    return FileResponse("templates/index.html")

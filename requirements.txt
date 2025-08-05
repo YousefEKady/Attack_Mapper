@@ -3,3 +3,6 @@ dnspython
 python-nmap
 whatweb
 pyyaml
+fastapi
+uvicorn[standard]
+python-multipart

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attack Surface Discovery Scanner</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="/static/style.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Header -->
+        <header class="row py-4 bg-dark text-white">
+            <div class="col-12 text-center">
+                <h1 class="display-4 fw-bold">
+                    <i class="bi bi-shield-check text-primary"></i>
+                    Attack Surface Discovery
+                </h1>
+                <p class="lead text-muted">Comprehensive security scanning and reconnaissance tool</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="row mt-4">
+            <div class="col-lg-8 mx-auto">
+                <!-- Scan Form Card -->
+                <div class="card shadow-lg border-0">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="card-title mb-0">
+                            <i class="bi bi-search"></i>
+                            New Scan Configuration
+                        </h3>
+                    </div>
+                    <div class="card-body p-4">
+                        <form id="scanForm">
+                            <!-- Domain Input -->
+                            <div class="mb-4">
+                                <label for="domain" class="form-label fw-bold">
+                                    <i class="bi bi-globe"></i>
+                                    Target Domain
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-link-45deg"></i>
+                                    </span>
+                                    <input 
+                                        type="text" 
+                                        class="form-control form-control-lg" 
+                                        id="domain" 
+                                        name="domain" 
+                                        placeholder="example.com"
+                                        required
+                                    >
+                                </div>
+                                <div class="form-text">
+                                    Enter the domain you want to scan (e.g., example.com)
+                                </div>
+                            </div>
+
+                            <!-- Scan Types -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">
+                                    <i class="bi bi-gear"></i>
+                                    Scan Types
+                                </label>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="subdomain" name="scans" value="subdomain" checked>
+                                            <label class="form-check-label" for="subdomain">
+                                                <i class="bi bi-diagram-3 text-primary"></i>
+                                                Subdomain Discovery
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="probe" name="scans" value="probe" checked>
+                                            <label class="form-check-label" for="probe">
+                                                <i class="bi bi-activity text-success"></i>
+                                                Live Host Detection
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="techdetect" name="scans" value="techdetect" checked>
+                                            <label class="form-check-label" for="techdetect">
+                                                <i class="bi bi-cpu text-info"></i>
+                                                Technology Detection
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="vulnscan" name="scans" value="vulnscan" checked>
+                                            <label class="form-check-label" for="vulnscan">
+                                                <i class="bi bi-exclamation-triangle text-warning"></i>
+                                                Vulnerability Scan
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Submit Button -->
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary btn-lg" id="scanBtn">
+                                    <i class="bi bi-play-circle"></i>
+                                    Start Scan
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Loading Indicator -->
+                <div id="loadingIndicator" class="card shadow-lg border-0 mt-4 d-none">
+                    <div class="card-body text-center p-5">
+                        <div class="spinner-border text-primary mb-3" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <h4 class="text-primary">Scanning in Progress</h4>
+                        <p class="text-muted">This may take several minutes depending on the scan scope...</p>
+                        <div class="progress mt-3">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" 
+                                 style="width: 100%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div id="resultsSection" class="mt-4 d-none">
+                    <!-- Results Header -->
+                    <div class="card shadow-lg border-0 mb-4">
+                        <div class="card-header bg-success text-white">
+                            <h3 class="card-title mb-0">
+                                <i class="bi bi-check-circle"></i>
+                                Scan Results
+                            </h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3 text-center">
+                                    <div class="result-stat">
+                                        <h2 id="subdomainCount" class="text-primary">0</h2>
+                                        <p class="text-muted">Subdomains</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 text-center">
+                                    <div class="result-stat">
+                                        <h2 id="liveHostCount" class="text-success">0</h2>
+                                        <p class="text-muted">Live Hosts</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 text-center">
+                                    <div class="result-stat">
+                                        <h2 id="techCount" class="text-info">0</h2>
+                                        <p class="text-muted">Technologies</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 text-center">
+                                    <div class="result-stat">
+                                        <h2 id="vulnCount" class="text-warning">0</h2>
+                                        <p class="text-muted">Vulnerabilities</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Results -->
+                    <div id="detailedResults"></div>
+                </div>
+
+                <!-- Error Section -->
+                <div id="errorSection" class="card shadow-lg border-0 mt-4 d-none">
+                    <div class="card-header bg-danger text-white">
+                        <h3 class="card-title mb-0">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            Error
+                        </h3>
+                    </div>
+                    <div class="card-body">
+                        <div id="errorMessage" class="alert alert-danger mb-0"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="row mt-5 py-4 bg-light">
+            <div class="col-12 text-center">
+                <p class="text-muted mb-0">
+                    <i class="bi bi-shield-lock"></i>
+                    Attack Surface Discovery Scanner - Security First
+                </p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom JS -->
+    <script src="/static/script.js"></script>
+</body>
+</html>

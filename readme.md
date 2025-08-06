@@ -78,7 +78,7 @@ python main.py --domain example.com --output reports/example_output.json
 
 Run the backend API
 ```shell
-uvicorn main:app --reload
+uvicorn api_main:app --reload
 ```
 This will start the FastAPI backend at: http://localhost:8000
 

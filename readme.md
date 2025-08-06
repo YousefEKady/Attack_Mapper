@@ -1,17 +1,26 @@
 # AttackMapper
 
-AttackMapper is a modular and extensible attack surface discovery and vulnerability scanning tool. It automates the process of enumerating subdomains, probing live hosts, identifying technologies, and scanning for vulnerabilities using [Nuclei](https://github.com/projectdiscovery/nuclei).
+**AttackMapper** is a modular and extensible attack surface discovery and vulnerability scanning tool.  
+It automates:
+
+- Subdomain enumeration  
+- Live host probing  
+- Technology fingerprinting  
+- Vulnerability scanning via [Nuclei](https://github.com/projectdiscovery/nuclei)  
+- Result visualization through a simple web-based UI
 
 ---
 
 ## Features
 
-- Subdomain discovery
-- Live host detection
-- Technology fingerprinting
-- Vulnerability scanning with Nuclei
-- Configurable settings via `config.yaml`
-- JSON report generation
+- Subdomain discovery  
+- Live host detection  
+- Technology fingerprinting (status, headers, tech stack)  
+- Vulnerability scanning with Nuclei  
+- Clean JSON report generation  
+- REST API via FastAPI  
+- Web UI with dynamic analytics and visual charts  
+- Configurable via `config.yaml`
 
 ---
 
@@ -67,16 +76,27 @@ Optional output file:
 python main.py --domain example.com --output reports/example_output.json
 ```
 
+Run the backend API
+```shell
+uvicorn main:app --reload
+```
+This will start the FastAPI backend at: http://localhost:8000
 
 ---
 
 ## Output
 
-Results are printed to the console and saved in the `reports/` directory if an output file is specified. The output includes:
+Scan results include:
 
 - Discovered subdomains
-- Live hosts and their response codes
-- Detected technologies per host
-- Vulnerability scan results from Nuclei (if applicable)
+- Live hosts (status, response time)
+- Technology stack per host
+- Vulnerabilities grouped by severity
+- Visual charts: bar graphs for vulnerability severity
+
+All results are stored in:
+```
+reports/<domain>.json
+```
 
 ---

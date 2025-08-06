@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 from typing import List
 import os
 
@@ -23,13 +24,25 @@ config = load_config("config.yaml")
 def wrap_errors(errors: List[str]) -> List[ErrorDetail]:
     return [ErrorDetail(message=e) for e in errors]
 
-@router.post("/scan", response_model=ScanResponse)
+@router.post("/scan")  # Removed response_model to allow flexible JSON response
 def run_scan(request: ScanRequest):
     try:
         domain = request.domain
         scans = request.scans or ["all"]
 
-        response_data = {"domain": domain}
+        # Use the structure that matches your frontend expectations
+        response_data = {
+            "domain": domain,
+            "subdomains": [],
+            "subdomain_errors": [],
+            "live_hosts": [],
+            "probe_errors": [],
+            "technologies": {},
+            "techdetect_errors": [],
+            "vulnerabilities": {},
+            "vulnscan_errors": []
+        }
+        
         results_for_file = {"domain": domain}
         output_dir = config.get("output_dir", "reports")
         os.makedirs(output_dir, exist_ok=True)
@@ -39,10 +52,10 @@ def run_scan(request: ScanRequest):
             subs, sub_errors = subdomain.discover(
                 domain, config.get("wordlist", "wordlists/subdomains.txt")
             )
-            response_data["subdomain_result"] = SubdomainResult(
-                subdomains=subs,
-                errors=wrap_errors(sub_errors) if sub_errors else None
-            )
+            # Direct assignment to match frontend expectations
+            response_data["subdomains"] = subs
+            response_data["subdomain_errors"] = sub_errors or []
+            
             results_for_file["subdomains"] = subs
             results_for_file["subdomain_errors"] = sub_errors
 
@@ -51,10 +64,10 @@ def run_scan(request: ScanRequest):
             live, probe_errors = probe.check_live(
                 subs, config.get("max_threads", 20)
             )
-            response_data["probe_result"] = ProbeResult(
-                live_hosts=live,
-                errors=wrap_errors(probe_errors) if probe_errors else None
-            )
+            # Direct assignment to match frontend expectations
+            response_data["live_hosts"] = live
+            response_data["probe_errors"] = probe_errors or []
+            
             results_for_file["live_hosts"] = live
             results_for_file["probe_errors"] = probe_errors
 
@@ -67,20 +80,11 @@ def run_scan(request: ScanRequest):
 
             if "techdetect" in scans or "all" in scans:
                 techs_raw, tech_errors = techdetect.detect(live_urls)
-
-                techs_parsed = {
-                    url: TechnologyDetails(
-                        status_code=data.get("status_code", 0),
-                        response_headers=[f"{k}: {v}" for k, v in data.get("headers", {}).items()],
-                        detected_technologies=data.get("detected_technologies", [])
-                    )
-                    for url, data in techs_raw.items()
-                }
-
-                response_data["techdetect_result"] = TechDetectResult(
-                    technologies=techs_parsed,
-                    errors=wrap_errors(tech_errors) if tech_errors else None
-                )
+                
+                # Keep the raw structure that matches your JSON sample
+                response_data["technologies"] = techs_raw
+                response_data["techdetect_errors"] = tech_errors or []
+                
                 results_for_file["technologies"] = techs_raw
                 results_for_file["techdetect_errors"] = tech_errors
 
@@ -91,18 +95,10 @@ def run_scan(request: ScanRequest):
                         https_only, config_path="config.yaml"
                     )
 
-                    # Ensure vulnerabilities is a flat list
-                    flat_vulns = []
-                    for url, result in vulns.items():
-                        findings = result.get("findings", [])
-                        for finding in findings:
-                            finding["target"] = url
-                            flat_vulns.append(finding)
-
-                    response_data["vulnscan_result"] = VulnScanResult(
-                        vulnerabilities=flat_vulns,
-                        errors=wrap_errors(vuln_errors) if vuln_errors else None
-                    )
+                    # Keep the nested structure that matches your JSON sample
+                    response_data["vulnerabilities"] = vulns
+                    response_data["vulnscan_errors"] = vuln_errors or []
+                    
                     results_for_file["vulnerabilities"] = vulns
                     results_for_file["vulnscan_errors"] = vuln_errors
                 else:
@@ -110,10 +106,19 @@ def run_scan(request: ScanRequest):
                     response_data["vulnscan_note"] = note
                     results_for_file["vulnscan_note"] = note
 
+        # Save results to file
         save_results(results_for_file, output_dir=output_dir)
 
-        return ScanResponse(**response_data)
+        # Return JSON response directly to match frontend expectations
+        return JSONResponse(
+            content=response_data,
+            headers={"Content-Type": "application/json"}
+        )
 
     except Exception as e:
         print(f"[!] Unhandled exception during scan: {e}")
-        raise e
+        return JSONResponse(
+            content={"error": f"Scan failed: {str(e)}"},
+            status_code=500,
+            headers={"Content-Type": "application/json"}
+        )

@@ -150,7 +150,7 @@ class ScanManager {
     }
 
     updateStatistics(data) {
-        // Update subdomain count
+        // Update subdomain count - FIXED: using correct property name
         const subdomainCount = document.getElementById('subdomainCount');
         if (subdomainCount) {
             const count = data.subdomains ? data.subdomains.length : 0;
@@ -158,7 +158,7 @@ class ScanManager {
             this.animateCounter(subdomainCount, count);
         }
 
-        // Update live host count
+        // Update live host count - FIXED: using correct property name
         const liveHostCount = document.getElementById('liveHostCount');
         if (liveHostCount) {
             const count = data.live_hosts ? data.live_hosts.length : 0;
@@ -166,7 +166,7 @@ class ScanManager {
             this.animateCounter(liveHostCount, count);
         }
 
-        // Update technology count
+        // Update technology count - FIXED: using correct data structure
         const techCount = document.getElementById('techCount');
         if (techCount) {
             const count = data.technologies ? Object.keys(data.technologies).length : 0;
@@ -174,12 +174,22 @@ class ScanManager {
             this.animateCounter(techCount, count);
         }
 
-        // Update vulnerability count
+        // Update vulnerability count - FIXED: counting vulnerabilities from nested structure
         const vulnCount = document.getElementById('vulnCount');
         if (vulnCount) {
-            const count = data.vulnerabilities ? data.vulnerabilities.length : 0;
-            vulnCount.textContent = count;
-            this.animateCounter(vulnCount, count);
+            let totalVulns = 0;
+            if (data.vulnerabilities) {
+                Object.values(data.vulnerabilities).forEach(vulnData => {
+                    if (vulnData.findings) {
+                        // Count only actual vulnerabilities, not "No vulnerabilities found" messages
+                        totalVulns += vulnData.findings.filter(finding => 
+                            !finding.info || !finding.info.includes('No vulnerabilities found')
+                        ).length;
+                    }
+                });
+            }
+            vulnCount.textContent = totalVulns;
+            this.animateCounter(vulnCount, totalVulns);
         }
     }
 
@@ -238,8 +248,8 @@ class ScanManager {
             );
         }
 
-        // Vulnerabilities Section
-        if (data.vulnerabilities && data.vulnerabilities.length > 0) {
+        // Vulnerabilities Section - FIXED: handle nested vulnerability structure
+        if (data.vulnerabilities && Object.keys(data.vulnerabilities).length > 0) {
             html += this.createResultCard(
                 'Vulnerabilities Found',
                 'bi-exclamation-triangle',
@@ -249,17 +259,12 @@ class ScanManager {
             );
         }
 
-        // Notes and Warnings
-        if (data.note || data.vulnscan_note) {
-            html += this.createNotesSection(data.note, data.vulnscan_note);
-        }
-
         detailedResults.innerHTML = html;
     }
 
     createResultCard(title, icon, color, content, errors = null) {
         let html = `
-            <div class="card result-card slide-in">
+            <div class="card result-card slide-in mb-4">
                 <div class="card-header bg-${color} text-white">
                     <h4 class="card-title mb-0">
                         <i class="bi ${icon}"></i>
@@ -312,8 +317,8 @@ class ScanManager {
                             <span class="font-monospace">${host.url}</span>
                         </div>
                         <div>
-                            <span class="badge bg-success">${host.status_code || 'Live'}</span>
-                            ${host.title ? `<span class="badge bg-info ms-1">${host.title}</span>` : ''}
+                            <span class="badge bg-success">${host.status}</span>
+                            <span class="badge bg-info ms-1">${host.response_time_ms.toFixed(2)}ms</span>
                         </div>
                     </div>
                 `).join('')}
@@ -324,17 +329,22 @@ class ScanManager {
     formatTechnologies(technologies) {
         let html = '<div class="row">';
         
-        Object.entries(technologies).forEach(([category, techs]) => {
+        Object.entries(technologies).forEach(([url, techData]) => {
             html += `
                 <div class="col-md-6 mb-3">
                     <div class="card border-0 bg-light">
                         <div class="card-header bg-info text-white">
-                            <h6 class="mb-0">${category}</h6>
+                            <h6 class="mb-0 font-monospace">${url}</h6>
                         </div>
                         <div class="card-body">
-                            ${techs.map(tech => `
-                                <span class="badge bg-info me-1 mb-1">${tech}</span>
-                            `).join('')}
+                            <p class="mb-2"><strong>Status:</strong> <span class="badge bg-success">${techData.status_code}</span></p>
+                            <p class="mb-2"><strong>Response Time:</strong> ${techData.response_time_ms.toFixed(2)}ms</p>
+                            ${techData.detected_technologies && techData.detected_technologies.length > 0 ? `
+                                <p class="mb-2"><strong>Technologies:</strong></p>
+                                ${techData.detected_technologies.map(tech => `
+                                    <span class="badge bg-info me-1 mb-1">${tech}</span>
+                                `).join('')}
+                            ` : '<p class="text-muted">No specific technologies detected</p>'}
                         </div>
                     </div>
                 </div>
@@ -346,41 +356,45 @@ class ScanManager {
     }
 
     formatVulnerabilities(vulnerabilities) {
-        return `
-            <div class="list-group">
-                ${vulnerabilities.map(vuln => `
-                    <div class="list-group-item">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h6 class="mb-0 text-danger">
-                                <i class="bi bi-exclamation-triangle"></i>
-                                ${vuln.name || vuln.template || 'Vulnerability'}
-                            </h6>
-                            <span class="badge bg-warning text-dark">${vuln.severity || 'Unknown'}</span>
-                        </div>
-                        ${vuln.url ? `<p class="mb-1"><strong>URL:</strong> <span class="font-monospace">${vuln.url}</span></p>` : ''}
-                        ${vuln.description ? `<p class="mb-1"><strong>Description:</strong> ${vuln.description}</p>` : ''}
-                        ${vuln.extracted_results ? `<p class="mb-0"><strong>Details:</strong> ${vuln.extracted_results}</p>` : ''}
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    }
-
-    createNotesSection(note, vulnscanNote) {
-        let html = '<div class="card result-card slide-in">';
-        html += '<div class="card-header bg-info text-white">';
-        html += '<h4 class="card-title mb-0"><i class="bi bi-info-circle"></i> Notes</h4>';
-        html += '</div><div class="card-body">';
+        let html = '<div class="list-group">';
         
-        if (note) {
-            html += `<div class="alert alert-info mb-2"><i class="bi bi-info-circle"></i> ${note}</div>`;
-        }
+        Object.entries(vulnerabilities).forEach(([url, vulnData]) => {
+            html += `
+                <div class="list-group-item">
+                    <h6 class="mb-2">
+                        <i class="bi bi-globe me-2"></i>
+                        <span class="font-monospace">${url}</span>
+                    </h6>
+                    <p class="mb-2"><strong>Scan Time:</strong> ${vulnData.scan_time_seconds.toFixed(2)} seconds</p>
+            `;
+            
+            if (vulnData.findings && vulnData.findings.length > 0) {
+                vulnData.findings.forEach(finding => {
+                    if (finding.info && finding.info.includes('No vulnerabilities found')) {
+                        html += `<div class="alert alert-success mb-2">${finding.info}</div>`;
+                    } else {
+                        html += `
+                            <div class="alert alert-warning mb-2">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="mb-0 text-danger">
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                        ${finding.name || 'Vulnerability'}
+                                    </h6>
+                                    <span class="badge bg-warning text-dark">${finding.severity || 'Unknown'}</span>
+                                </div>
+                                ${finding.url ? `<p class="mb-1"><strong>URL:</strong> <span class="font-monospace">${finding.url}</span></p>` : ''}
+                                ${finding.redirect ? `<p class="mb-1"><strong>Redirect:</strong> ${finding.redirect}</p>` : ''}
+                                ${finding.raw_output ? `<p class="mb-0"><strong>Details:</strong> <code>${finding.raw_output}</code></p>` : ''}
+                            </div>
+                        `;
+                    }
+                });
+            }
+            
+            html += '</div>';
+        });
         
-        if (vulnscanNote) {
-            html += `<div class="alert alert-warning mb-0"><i class="bi bi-exclamation-triangle"></i> ${vulnscanNote}</div>`;
-        }
-        
-        html += '</div></div>';
+        html += '</div>';
         return html;
     }
 }

@@ -24,13 +24,12 @@ config = load_config("config.yaml")
 def wrap_errors(errors: List[str]) -> List[ErrorDetail]:
     return [ErrorDetail(message=e) for e in errors]
 
-@router.post("/scan")  # Removed response_model to allow flexible JSON response
+@router.post("/scan")
 def run_scan(request: ScanRequest):
     try:
         domain = request.domain
         scans = request.scans or ["all"]
 
-        # Use the structure that matches your frontend expectations
         response_data = {
             "domain": domain,
             "subdomains": [],
@@ -52,7 +51,6 @@ def run_scan(request: ScanRequest):
             subs, sub_errors = subdomain.discover(
                 domain, config.get("wordlist", "wordlists/subdomains.txt")
             )
-            # Direct assignment to match frontend expectations
             response_data["subdomains"] = subs
             response_data["subdomain_errors"] = sub_errors or []
             
@@ -64,7 +62,6 @@ def run_scan(request: ScanRequest):
             live, probe_errors = probe.check_live(
                 subs, config.get("max_threads", 20)
             )
-            # Direct assignment to match frontend expectations
             response_data["live_hosts"] = live
             response_data["probe_errors"] = probe_errors or []
             
@@ -81,7 +78,6 @@ def run_scan(request: ScanRequest):
             if "techdetect" in scans or "all" in scans:
                 techs_raw, tech_errors = techdetect.detect(live_urls)
                 
-                # Keep the raw structure that matches your JSON sample
                 response_data["technologies"] = techs_raw
                 response_data["techdetect_errors"] = tech_errors or []
                 
@@ -95,7 +91,6 @@ def run_scan(request: ScanRequest):
                         https_only, config_path="config.yaml"
                     )
 
-                    # Keep the nested structure that matches your JSON sample
                     response_data["vulnerabilities"] = vulns
                     response_data["vulnscan_errors"] = vuln_errors or []
                     
@@ -109,7 +104,6 @@ def run_scan(request: ScanRequest):
         # Save results to file
         save_results(results_for_file, output_dir=output_dir)
 
-        # Return JSON response directly to match frontend expectations
         return JSONResponse(
             content=response_data,
             headers={"Content-Type": "application/json"}

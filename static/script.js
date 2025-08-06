@@ -150,7 +150,6 @@ class ScanManager {
     }
 
     updateStatistics(data) {
-        // Update subdomain count - FIXED: using correct property name
         const subdomainCount = document.getElementById('subdomainCount');
         if (subdomainCount) {
             const count = data.subdomains ? data.subdomains.length : 0;
@@ -158,7 +157,6 @@ class ScanManager {
             this.animateCounter(subdomainCount, count);
         }
 
-        // Update live host count - FIXED: using correct property name
         const liveHostCount = document.getElementById('liveHostCount');
         if (liveHostCount) {
             const count = data.live_hosts ? data.live_hosts.length : 0;
@@ -166,7 +164,6 @@ class ScanManager {
             this.animateCounter(liveHostCount, count);
         }
 
-        // Update technology count - FIXED: using correct data structure
         const techCount = document.getElementById('techCount');
         if (techCount) {
             const count = data.technologies ? Object.keys(data.technologies).length : 0;
@@ -174,7 +171,6 @@ class ScanManager {
             this.animateCounter(techCount, count);
         }
 
-        // Update vulnerability count - FIXED: counting vulnerabilities from nested structure
         const vulnCount = document.getElementById('vulnCount');
         if (vulnCount) {
             let totalVulns = 0;
@@ -248,7 +244,6 @@ class ScanManager {
             );
         }
 
-        // Vulnerabilities Section - FIXED: handle nested vulnerability structure
         if (data.vulnerabilities && Object.keys(data.vulnerabilities).length > 0) {
             html += this.createResultCard(
                 'Vulnerabilities Found',

@@ -1,5 +1,5 @@
 requests
 dnspython
-python-nmap
+fastapi
 whatweb
 pyyaml
